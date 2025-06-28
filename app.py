@@ -1,7 +1,10 @@
 from flask import Flask, request, send_file, render_template_string
 import subprocess, os
-from datetime import datetime
-
+from datetime import datetime, timedelta
+# 마지막 다운로드 처리 시각 (컨테이너 전체 공유)
+last_download_time: datetime = datetime.min
+# 요청 간 최소 간격 (예: 60초)
+DOWNLOAD_INTERVAL = timedelta(seconds=60)
 app = Flask(__name__)
 
 @app.route('/robots.txt')
@@ -44,6 +47,11 @@ TEMPLATE = '''
         <input name="url" type="url" class="form-control" placeholder="https://youtu.be/…" required>
         <button type="submit" class="btn btn-primary btn-download">다운로드</button>
       </form>
+      {% if error %}
+  <div class="alert alert-warning text-center" role="alert">
+    {{ error }}
+  </div>
+{% endif %}
       <p class="text-muted small mb-4 text-center">
         🙏 파일명은 영문·숫자·ID 기반으로 표시됩니다.
       </p>
@@ -70,29 +78,52 @@ TEMPLATE = '''
 
 @app.route('/', methods=['GET','POST'])
 def index():
+    global last_download_time
+    now = datetime.now()
+
+    # 1분 이내 중복 요청 방지
+    if now - last_download_time < DOWNLOAD_INTERVAL:
+        wait = int((DOWNLOAD_INTERVAL - (now - last_download_time)).total_seconds())
+        error = f"🙏 너무 빠른 요청입니다. {wait}초 후에 다시 시도해 주세요."
+        return render_template_string(
+            TEMPLATE,
+            filename=None,
+            error=error,
+            current_year=datetime.now().year
+        )
+
     filename = None
+    error = None
+
     if request.method == 'POST':
+        # 요청 허용, 타임스탬프 업데이트
+        last_download_time = now
+
         url = request.form['url']
         os.makedirs('downloads', exist_ok=True)
-        # yt-dlp 호출: 오디오만 wav 포맷으로 저장, ID 기반 파일명
         cmd = [
             'yt-dlp',
             '-x', '--audio-format', 'wav',
             '-o', 'downloads/%(id)s.%(ext)s',
             url
         ]
-        subprocess.run(cmd, check=True)
-        video_id = subprocess.check_output(['yt-dlp','--get-id', url]).decode().strip()
-        filename = f"{video_id}.wav"
+        try:
+            subprocess.run(cmd, check=True)
+            video_id = subprocess.check_output(
+                ['yt-dlp', '--get-id', url]
+            ).decode().strip()
+            filename = f"{video_id}.wav"
+        except subprocess.CalledProcessError:
+            error = "😢 현재 다운로드가 불가능합니다. 잠시 후 다시 시도해주세요."
+
     return render_template_string(
         TEMPLATE,
         filename=filename,
+        error=error,
         current_year=datetime.now().year
     )
+
 @app.route('/download/<path:fname>')
 def download(fname):
     path = os.path.join('downloads', fname)
     return send_file(path, as_attachment=True)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
