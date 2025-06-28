@@ -3,6 +3,10 @@ import subprocess, os
 
 app = Flask(__name__)
 
+@app.route('/robots.txt')
+def robots():
+    return send_file('robots.txt', mimetype='text/plain')
+
 # 간단한 HTML 템플릿
 TEMPLATE = '''
 <!doctype html>
