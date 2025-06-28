@@ -1,5 +1,6 @@
 from flask import Flask, request, send_file, render_template_string
 import subprocess, os
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -11,7 +12,7 @@ def robots():
 def sitemap():
     return send_file('sitemap.xml', mimetype='application/xml')
     
-    # Google site verification file 제공
+# Google site verification file 제공
 @app.route('/googlec2c80d80434062e7.html')
 def google_verify():
     return send_file('googlec2c80d80434062e7.html', mimetype='text/html')
@@ -21,57 +22,51 @@ TEMPLATE = '''
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8"><title>YouTube Downloader MVP</title>
- <!-- 기본 SEO 메타 태그 -->
- <meta name="description" content="YouTube URL만 입력하면 WAV 오디오로 변환·다운로드해 주는 무료 웹앱입니다.">
- <meta name="keywords"    content="YouTube, 오디오 다운로드, WAV 변환, 무료 서비스">
-
- <!-- Open Graph 태그 (SNS 공유용) -->
- <meta property="og:title"       content="YouTube Audio Downloader">
- <meta property="og:description" content="URL만 입력하면 간편하게 WAV 오디오 파일을 다운로드하세요!">
- <meta property="og:image"       content="https://yt-downloader-zn0z.onrender.com/og-image.png">
- <meta property="og:url"         content="https://yt-downloader-zn0z.onrender.com/">
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8180253907611579"
-     crossorigin="anonymous"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YouTube Audio Downloader</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-ENjdO4Dr2bkBIFxQpeoghbPvzkgIJ6q+...省略..." crossorigin="anonymous">
+  <!-- Custom Styles -->
+  <style>
+    body { background: #f8f9fa; }
+    .card { max-width: 540px; margin: 4rem auto; border: none; border-radius: .75rem; }
+    .btn-download { width: 100%; }
+    footer { text-align: center; padding: 2rem 0; color: #6c757d; }
+  </style>
 </head>
 <body>
-  <h1>YouTube 오디오 다운로드</h1>
-  <form method="post">
-    YouTube URL: <input name="url" size="50" placeholder="https://youtu.be/..." required>
-    <button type="submit">다운로드</button>
-  </form>
-  
-  <p style="color:gray; font-size:0.9em;">
-    🙏 다운로드된 파일명은 영문·숫자·ID 기반으로 표시되며,
-    한글이나 원본 제목과 다를 수 있습니다.
-  </p>
-  
-  {% if filename %}
-    <p>✅ 다운로드 준비 완료:</p>
-    <!-- 광고 시청 버튼 -->
-    <button id="watchAd" style="margin-top:0.5em;">▶ 광고 시청 후 다운로드</button>
-    <!-- 실제 다운로드 링크 (초기엔 숨김) -->
-    <div id="downloadContainer" style="display:none; margin-top:0.5em;">
-      <a id="downloadLink" href="/download/{{filename}}">
-        📥 다운로드 받기 ({{filename}})
-      </a>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h1 class="card-title text-center mb-4">YouTube Audio Downloader</h1>
+      <form method="post" class="d-flex gap-2 mb-3">
+        <input name="url" type="url" class="form-control" placeholder="https://youtu.be/…" required>
+        <button type="submit" class="btn btn-primary btn-download">다운로드</button>
+      </form>
+      <p class="text-muted small mb-4 text-center">
+        🙏 파일명은 영문·숫자·ID 기반으로 표시됩니다.
+      </p>
+      {% if filename %}
+        <div class="alert alert-success text-center" role="alert">
+          다운로드 준비 완료!
+        </div>
+        <div class="d-grid">
+          <a href="/download/{{filename}}" class="btn btn-success">📥 {{filename}} 받기</a>
+        </div>
+      {% endif %}
     </div>
-    <!-- 광고 시청 시뮬레이션 스크립트 -->
-    <script>
-      document.getElementById('watchAd').addEventListener('click', function(){
-        this.disabled = true;
-        this.innerText = '광고 재생 중…';
-        // 실제 광고 SDK 연동 시 이 부분을 대체하세요
-        setTimeout(() => {
-          document.getElementById('downloadContainer').style.display = 'block';
-          this.style.display = 'none';
-        }, 5000);  // 5초 후 다운로드 링크 노출
-      });
-    </script>
-  {% endif %}
+  </div>
+  <footer>
+    &copy; {{current_year}} YourCompany. All rights reserved.
+  </footer>
+  <!-- Optional Bootstrap JS (for future) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+…省略…" crossorigin="anonymous"></script>
 </body>
 </html>
 '''
+
 
 @app.route('/', methods=['GET','POST'])
 def index():
@@ -89,8 +84,11 @@ def index():
         subprocess.run(cmd, check=True)
         video_id = subprocess.check_output(['yt-dlp','--get-id', url]).decode().strip()
         filename = f"{video_id}.wav"
-    return render_template_string(TEMPLATE, filename=filename)
-
+    return render_template_string(
+        TEMPLATE,
+        filename=filename,
+        current_year=datetime.now().year
+    )
 @app.route('/download/<path:fname>')
 def download(fname):
     path = os.path.join('downloads', fname)
