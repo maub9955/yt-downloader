@@ -5,6 +5,11 @@ from datetime import datetime, timedelta
 last_download_time: datetime = datetime.min
 # 요청 간 최소 간격 (예: 60초)
 DOWNLOAD_INTERVAL = timedelta(seconds=60)
+
+import random
+
+# Tor 로컬 SOCKS5 프록시
+PROXIES = ["socks5://127.0.0.1:9050"]
 app = Flask(__name__)
 
 @app.route('/robots.txt')
@@ -101,10 +106,13 @@ def index():
 
         url = request.form['url']
         os.makedirs('downloads', exist_ok=True)
+              # Tor 프록시 사용
+        proxy = random.choice(PROXIES)
         cmd = [
             'yt-dlp',
-            '-x', '--audio-format', 'wav',
-            '-o', 'downloads/%(id)s.%(ext)s',
+            f'--proxy={proxy}',
+            '-x','--audio-format','wav',
+            '-o','downloads/%(id)s.%(ext)s',
             url
         ]
         try:
