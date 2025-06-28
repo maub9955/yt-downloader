@@ -9,6 +9,15 @@ TEMPLATE = '''
 <html lang="ko">
 <head>
 <meta charset="UTF-8"><title>YouTube Downloader MVP</title>
+ <!-- 기본 SEO 메타 태그 -->
+ <meta name="description" content="YouTube URL만 입력하면 WAV 오디오로 변환·다운로드해 주는 무료 웹앱입니다.">
+ <meta name="keywords"    content="YouTube, 오디오 다운로드, WAV 변환, 무료 서비스">
+
+ <!-- Open Graph 태그 (SNS 공유용) -->
+ <meta property="og:title"       content="YouTube Audio Downloader">
+ <meta property="og:description" content="URL만 입력하면 간편하게 WAV 오디오 파일을 다운로드하세요!">
+ <meta property="og:image"       content="https://yt-downloader-zn0z.onrender.com/og-image.png">
+ <meta property="og:url"         content="https://yt-downloader-zn0z.onrender.com/">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8180253907611579"
      crossorigin="anonymous"></script>
 </head>
