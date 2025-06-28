@@ -7,7 +7,11 @@ app = Flask(__name__)
 TEMPLATE = '''
 <!doctype html>
 <html lang="ko">
-<head><meta charset="UTF-8"><title>YouTube Downloader MVP</title></head>
+<head>
+<meta charset="UTF-8"><title>YouTube Downloader MVP</title>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8180253907611579"
+     crossorigin="anonymous"></script>
+</head>
 <body>
   <h1>YouTube 오디오 다운로드</h1>
   <form method="post">
