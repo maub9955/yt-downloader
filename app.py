@@ -51,7 +51,7 @@ TEMPLATE = '''
       <div class="mb-4">
         <h5>로그인 세션 사용하여 안정적 다운로드</h5>
         <p class="small text-muted">YouTube 로그인 쿠키를 업로드하면 차단 없이 다운로드 확률이 높아집니다.</p>
-        <p class="small">1) <a href="https://www.socks-proxy.net/" target="_blank">EditThisCookie</a> 확장으로 쿠키 내보내기 (cookies.txt)<br>
+        <p class="small">1) <a href="https://chrome.google.com/webstore/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg" target="_blank">EditThisCookie</a> 확장으로 쿠키 내보내기 (cookies.txt)<br>
            2) 아래에서 <strong>cookies.txt</strong> 파일 업로드</p>
       </div>
       
