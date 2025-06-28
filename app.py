@@ -100,38 +100,71 @@ def index():
     filename = None
     error = None
 
-    if request.method == 'POST':
-        # 요청 허용, 타임스탬프 업데이트
-        last_download_time = now
+@app.route('/', methods=['GET','POST'])
+def index():
+    global last_download_time
+    now = datetime.now()
 
+    # 1분 이내 중복 요청 방지 (이전 스로틀링 로직 유지)
+    if now - last_download_time < DOWNLOAD_INTERVAL:
+        wait = int((DOWNLOAD_INTERVAL - (now - last_download_time)).total_seconds())
+        error = f"🙏 너무 빠른 요청입니다. {wait}초 후에 다시 시도해 주세요."
+        return render_template_string(
+            TEMPLATE,
+            filename=None,
+            error=error,
+            current_year=now.year
+        )
+
+    filename = None
+    error = None
+
+    if request.method == 'POST':
+        # 타임스탬프 갱신
+        last_download_time = now
         url = request.form['url']
         os.makedirs('downloads', exist_ok=True)
-              # Tor 프록시 사용
-        proxy = random.choice(PROXIES)
-        cmd = [
+
+        # 1) 직접 다운로드 시도
+        cmd_direct = [
             'yt-dlp',
-            f'--proxy={proxy}',
-            '-x','--audio-format','wav',
-            '-o','downloads/%(id)s.%(ext)s',
+            '-f', 'bestaudio',
+            '-o', 'downloads/%(id)s.%(ext)s',
             url
         ]
         try:
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd_direct, check=True, timeout=60)
             video_id = subprocess.check_output(
-                ['yt-dlp', '--get-id', url]
+                ['yt-dlp', '--get-id', url], timeout=20
             ).decode().strip()
-            filename = f"{video_id}.wav"
-        except subprocess.CalledProcessError:
-            error = "😢 현재 다운로드가 불가능합니다. 잠시 후 다시 시도해주세요."
+            ext = os.path.splitext(os.listdir('downloads')[0])[1][1:]
+            filename = f"{video_id}.{ext}"
+        except Exception:
+            # 2) 직접 실패 시 Tor 프록시 재시도
+            proxy = random.choice(PROXIES)
+            cmd_proxy = [
+                'yt-dlp',
+                f'--proxy={proxy}',
+                '-f', 'bestaudio',
+                '-o', 'downloads/%(id)s.%(ext)s',
+                url
+            ]
+            try:
+                subprocess.run(cmd_proxy, check=True, timeout=120)
+                video_id = subprocess.check_output(
+                    ['yt-dlp', '--get-id', url], timeout=30
+                ).decode().strip()
+                ext = os.path.splitext(os.listdir('downloads')[0])[1][1:]
+                filename = f"{video_id}.{ext}"
+            except subprocess.TimeoutExpired:
+                error = "⏰ 다운로드가 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요."
+            except subprocess.CalledProcessError:
+                error = "😢 다운로드 실패: YouTube에서 콘텐츠를 가져올 수 없습니다."
 
+    # 최종 렌더
     return render_template_string(
         TEMPLATE,
         filename=filename,
         error=error,
         current_year=datetime.now().year
     )
-
-@app.route('/download/<path:fname>')
-def download(fname):
-    path = os.path.join('downloads', fname)
-    return send_file(path, as_attachment=True)
