@@ -7,6 +7,10 @@ app = Flask(__name__)
 def robots():
     return send_file('robots.txt', mimetype='text/plain')
 
+@app.route('/sitemap.xml')
+def sitemap():
+    return send_file('sitemap.xml', mimetype='application/xml')
+    
 # 간단한 HTML 템플릿
 TEMPLATE = '''
 <!doctype html>
