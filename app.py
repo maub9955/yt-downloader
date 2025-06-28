@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, render_template_string
+from flask import Flask, request, send_file, render_template_string, redirect, url_for
 import subprocess, os, random
 from datetime import datetime, timedelta
 
@@ -11,6 +11,7 @@ DOWNLOAD_INTERVAL = timedelta(seconds=60)
 PROXIES = ["socks5://127.0.0.1:9050"]
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 최대 2MB 업로드
 
 @app.route('/robots.txt')
 def robots():
@@ -32,12 +33,12 @@ TEMPLATE = '''
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YouTube Audio Downloader</title>
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
   <style>
     body { background: #f8f9fa; }
-    .card { max-width: 540px; margin: 4rem auto; border: none; border-radius: .75rem; }
+    .card { max-width: 600px; margin: 2rem auto; border: none; border-radius: .75rem; }
     .btn-download { width: 100%; }
+    pre { background: #f1f1f1; padding: 1em; border-radius: .5rem; }
     footer { text-align: center; padding: 2rem 0; color: #6c757d; }
   </style>
 </head>
@@ -45,9 +46,24 @@ TEMPLATE = '''
   <div class="card shadow-sm">
     <div class="card-body">
       <h1 class="card-title text-center mb-4">YouTube Audio Downloader</h1>
-      <form method="post" class="d-flex gap-2 mb-3">
-        <input name="url" type="url" class="form-control" placeholder="https://youtu.be/..." required>
-        <button type="submit" class="btn btn-primary btn-download">다운로드</button>
+
+      <!-- 쿠키 업로드 안내 -->
+      <div class="mb-4">
+        <h5>로그인 세션 사용하여 안정적 다운로드</h5>
+        <p class="small text-muted">YouTube 로그인 쿠키를 업로드하면 차단 없이 다운로드 확률이 높아집니다.</p>
+        <p class="small">1) <a href="https://www.socks-proxy.net/" target="_blank">EditThisCookie</a> 확장으로 쿠키 내보내기 (cookies.txt)<br>
+           2) 아래에서 <strong>cookies.txt</strong> 파일 업로드</p>
+      </div>
+      
+      <form method="post" enctype="multipart/form-data" class="mb-3">
+        <div class="mb-3">
+          <label for="cookieFile" class="form-label">cookies.txt 파일 (선택)</label>
+          <input class="form-control" type="file" id="cookieFile" name="cookie_file" accept="text/plain">
+        </div>
+        <div class="d-flex gap-2 mb-3">
+          <input name="url" type="url" class="form-control" placeholder="https://youtu.be/..." required>
+          <button type="submit" class="btn btn-primary btn-download">다운로드</button>
+        </div>
       </form>
       {% if error %}
         <div class="alert alert-warning text-center" role="alert">
@@ -79,7 +95,6 @@ def index():
     global last_download_time
     now = datetime.now()
 
-    # 1분 이내 중복 요청 방지
     if now - last_download_time < DOWNLOAD_INTERVAL:
         wait = int((DOWNLOAD_INTERVAL - (now - last_download_time)).total_seconds())
         error = f"🙏 너무 빠른 요청입니다. {wait}초 후에 다시 시도해 주세요."
@@ -93,28 +108,31 @@ def index():
         url = request.form['url']
         os.makedirs('downloads', exist_ok=True)
 
-        # 1) 직접 다운로드 시도
-        cmd_direct = [
-            'yt-dlp',
-            '-f', 'bestaudio',
-            '-o', 'downloads/%(id)s.%(ext)s',
-            url
-        ]
+        # 업로드된 쿠키 파일 저장 (선택)
+        cookie_path = None
+        uploaded = request.files.get('cookie_file')
+        if uploaded and uploaded.filename:
+            cookie_path = os.path.join('cookies', uploaded.filename)
+            os.makedirs('cookies', exist_ok=True)
+            uploaded.save(cookie_path)
+
+        # 직접 다운로드 시도
+        cmd_direct = ['yt-dlp',]
+        if cookie_path:
+            cmd_direct += ['--cookies', cookie_path]
+        cmd_direct += ['-f', 'bestaudio', '-o', 'downloads/%(id)s.%(ext)s', url]
         try:
             subprocess.run(cmd_direct, check=True, timeout=60)
             video_id = subprocess.check_output(['yt-dlp','--get-id', url], timeout=20).decode().strip()
             ext = os.path.splitext(os.listdir('downloads')[0])[1][1:]
             filename = f"{video_id}.{ext}"
         except Exception:
-            # 2) 직접 실패 시 Tor 프록시 재시도
+            # Tor 프록시 재시도
             proxy = random.choice(PROXIES)
-            cmd_proxy = [
-                'yt-dlp',
-                f'--proxy={proxy}',
-                '-f', 'bestaudio',
-                '-o', 'downloads/%(id)s.%(ext)s',
-                url
-            ]
+            cmd_proxy = ['yt-dlp', f'--proxy={proxy}']
+            if cookie_path:
+                cmd_proxy += ['--cookies', cookie_path]
+            cmd_proxy += ['-f', 'bestaudio', '-o', 'downloads/%(id)s.%(ext)s', url]
             try:
                 subprocess.run(cmd_proxy, check=True, timeout=120)
                 video_id = subprocess.check_output(['yt-dlp','--get-id', url], timeout=30).decode().strip()
