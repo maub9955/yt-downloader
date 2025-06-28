@@ -11,6 +11,15 @@ def robots():
 def sitemap():
     return send_file('sitemap.xml', mimetype='application/xml')
     
+    # Google site verification file 제공
+@app.route('/googlec2c80d80434062e7.html')
+def google_verify():
+    return send_file('googlec2c80d80434062e7.html', mimetype='text/html')
+
+# 메인 페이지 제공
+@app.route('/', methods=['GET','POST'])
+def index():
+
 # 간단한 HTML 템플릿
 TEMPLATE = '''
 <!doctype html>
